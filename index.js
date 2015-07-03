@@ -30,7 +30,7 @@ exports = module.exports = function(options) {
   return fs.readFileAsync(maxIdPath, {
     encoding: 'utf-8'
   }).then(function(result) {
-    return maxId = result;
+    return maxId = typeof result !== "undefined" && result !== null ? result.trim() : void 0;;
   })["catch"](function() {
     return maxId = initMaxId || 0;
   }).then(interval = function() {
