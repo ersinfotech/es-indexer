@@ -23,7 +23,8 @@ exports = module.exports = function(options) {
   es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync;
   baseUrl = es.baseUrl, index = es.index, type = es.type;
   client = new elasticsearch.Client({
-    hosts: baseUrl
+    hosts: baseUrl,
+    requestTimeout: 1000 * 60 * 5
   });
   delay = 0;
   return fs.readFileAsync(maxIdPath, {
