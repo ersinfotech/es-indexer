@@ -19,8 +19,8 @@ log = function(message) {
 };
 
 exports = module.exports = function(options) {
-  var baseUrl, client, delay, es, getDataAsync, getMaxId, index, initMaxId, interval, maxIdPath, type;
-  es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync;
+  var baseUrl, client, delay, es, getDataAsync, getMaxId, index, initMaxId, interval, maxIdPath, type, maxIdSince, maxIdUntil;
+  es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync, maxIdSince = options.maxIdSince, maxIdUntil = options.maxIdUntil;
   baseUrl = es.baseUrl, index = es.index, type = es.type;
   client = new elasticsearch.Client({
     hosts: baseUrl,
@@ -32,40 +32,47 @@ exports = module.exports = function(options) {
   }).then(function(result) {
     return maxId = typeof result !== "undefined" && result !== null ? result.trim() : void 0;;
   })["catch"](function() {
-    return maxId = initMaxId || 0;
+    return maxId = maxIdSince || initMaxId || 0;
   }).then(interval = function() {
-    return getDataAsync(maxId).then(function(results) {
-      if (!results.length) {
-        delay = 30;
-        log("No data. sleep for " + delay + " seconds.");
-        return;
-      }
-      delay = 0;
-      log("From " + maxId + ", got " + results.length + " data.");
-      return client.bulk({
-        body: (function() {
-          return _.chain(results).map(function(result) {
-            return [
-              {
-                index: {
-                  _index: index,
-                  _type: type,
-                  _id: result._id || result.id
-                }
-              }, result
-            ];
-          }).flatten().value();
-        })()
-      }).then(function() {
-        return maxId = getMaxId(results);
-      }).then(function() {
-        return fs.writeFileAsync(maxIdPath, maxId);
-      }).then(function() {
-        return log("Indexed success");
+    Promise.resolve().then(function(){
+      if (maxIdUntil && maxId >= maxIdUntil) {
+        throw "Maximum max id reached";
+      };
+      var fetchStartAt = moment();
+      return getDataAsync(maxId).then(function(results) {
+        if (!results.length) {
+          throw "No data";
+        }
+        var fetchUsed = moment().diff(fetchStartAt, 'seconds', true);
+        log("From " + maxId + ", got " + results.length + " data, used " + fetchUsed + " seconds");
+        var indexStartAt = moment();
+        return client.bulk({
+          body: (function() {
+            return _.chain(results).map(function(result) {
+              return [
+                {
+                  index: {
+                    _index: index,
+                    _type: type,
+                    _id: result._id || result.id
+                  }
+                }, result
+              ];
+            }).flatten().value();
+          })()
+        }).then(function() {
+          return maxId = getMaxId(results);
+        }).then(function() {
+          return fs.writeFileAsync(maxIdPath, maxId);
+        }).then(function() {
+          delay = 0;
+          var indexUsed = moment().diff(indexStartAt, 'seconds', true);
+          return log("Indexed success, used " + indexUsed + " seconds");
+        });
       });
     })["catch"](function(err) {
-      log(err);
-      return delay = 30;
+      delay = 30;
+      return log(err);
     }).delay(1000 * delay).then(interval);
   });
 };
