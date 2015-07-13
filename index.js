@@ -77,6 +77,10 @@ exports = module.exports = function(options) {
   });
 };
 
+exports.getMaxId = function () {
+  return maxId;
+}
+
 exports.setMaxId = function(data) {
   return maxId = data;
 };
