@@ -19,8 +19,8 @@ log = function(message) {
 };
 
 exports = module.exports = function(options) {
-  var baseUrl, client, delay, es, getDataAsync, getMaxId, index, initMaxId, interval, maxIdPath, type, maxIdSince, maxIdUntil;
-  es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync, maxIdSince = options.maxIdSince, maxIdUntil = options.maxIdUntil;
+  var baseUrl, client, delay, es, getDataAsync, getMaxId, index, initMaxId, interval, maxIdPath, type, maxIdSince, maxIdUntil, setEsMapping;
+  es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync, maxIdSince = options.maxIdSince, maxIdUntil = options.maxIdUntil, setEsMapping = options.setEsMapping;
   baseUrl = es.baseUrl, index = es.index, type = es.type;
   client = new elasticsearch.Client({
     hosts: baseUrl,
@@ -33,6 +33,16 @@ exports = module.exports = function(options) {
     return maxId = typeof result !== "undefined" && result !== null ? result.trim() : void 0;;
   })["catch"](function() {
     return maxId = maxIdSince || initMaxId || 0;
+  }).then(function() {
+    if (setEsMapping) {
+      return client.indices.putMapping({
+        index: index,
+        type: type,
+        body: {
+          properties: setEsMapping
+        }
+      });
+    }
   }).then(interval = function() {
     Promise.resolve().then(function(){
       if (maxIdUntil && maxId >= maxIdUntil) {
