@@ -61,12 +61,15 @@ exports = module.exports = function(options) {
             return _.chain(results).map(function(result) {
               return [
                 {
-                  index: {
+                  update: {
                     _index: index,
                     _type: type,
                     _id: result._id || result.id
                   }
-                }, result
+                }, {
+                  doc: result,
+                  doc_as_upsert: true
+                }
               ];
             }).flatten().value();
           })()
