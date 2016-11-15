@@ -20,7 +20,7 @@ log = function(message) {
 
 exports = module.exports = function(options) {
   var baseUrl, client, delay, es, getDataAsync, getMaxId, index, initMaxId, interval, maxIdPath, type, maxIdSince, maxIdUntil, setEsMapping;
-  es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync, maxIdSince = options.maxIdSince, maxIdUntil = options.maxIdUntil, setEsMapping = options.setEsMapping, getIndex = options.getIndex, getType = options.getType;
+  es = options.es, maxIdPath = options.maxIdPath, initMaxId = options.initMaxId, getMaxId = options.getMaxId, getDataAsync = options.getDataAsync, maxIdSince = options.maxIdSince, maxIdUntil = options.maxIdUntil, setEsMapping = options.setEsMapping, getIndex = options.getIndex, getType = options.getType, getId = options.getId;
   baseUrl = es.baseUrl, index = es.index, type = es.type;
   client = new elasticsearch.Client({
     hosts: baseUrl,
@@ -64,7 +64,7 @@ exports = module.exports = function(options) {
                   update: {
                     _index: getIndex && getIndex(result) || index,
                     _type: getType && getType(result) || type,
-                    _id: result._id || result.id
+                    _id: getId && getId(result) || result.id
                   }
                 }, {
                   doc: result,
