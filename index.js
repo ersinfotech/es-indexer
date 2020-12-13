@@ -1,24 +1,24 @@
-var Promise, _, elasticsearch, exports, fs, log, maxId, moment
+var Promise, _, elasticsearch, exports, fs, log, maxId, moment;
 
-fs = require('fs')
+fs = require("fs");
 
-_ = require('underscore')
+_ = require("underscore");
 
-Promise = require('bluebird')
+Promise = require("bluebird");
 
-elasticsearch = require('elasticsearch')
+elasticsearch = require("elasticsearch");
 
-moment = require('moment')
+moment = require("moment");
 
-Promise.promisifyAll(fs)
+Promise.promisifyAll(fs);
 
-maxId = null
+maxId = null;
 
-log = function(message) {
-  return console.log(moment().format('YYYY-MM-DD HH:mm:ss') + ' - ' + message)
-}
+log = function (message) {
+  return console.log(moment().format("YYYY-MM-DD HH:mm:ss") + " - " + message);
+};
 
-exports = module.exports = function(options) {
+exports = module.exports = function (options) {
   var baseUrl,
     client,
     delay,
@@ -32,44 +32,44 @@ exports = module.exports = function(options) {
     type,
     maxIdSince,
     maxIdUntil,
-    setEsMapping
+    setEsMapping;
 
-  es = options.es
-  maxIdPath = options.maxIdPath
-  initMaxId = options.initMaxId
-  getMaxId = options.getMaxId
-  getDataAsync = options.getDataAsync
-  maxIdSince = options.maxIdSince
-  maxIdUntil = options.maxIdUntil
-  setEsMapping = options.setEsMapping
-  getIndex = options.getIndex
-  getType = options.getType
-  getId = options.getId
-  baseUrl = es.baseUrl
-  index = es.index
-  type = es.type
-  httpAuth = es.httpAuth
+  es = options.es;
+  maxIdPath = options.maxIdPath;
+  initMaxId = options.initMaxId;
+  getMaxId = options.getMaxId;
+  getDataAsync = options.getDataAsync;
+  maxIdSince = options.maxIdSince;
+  maxIdUntil = options.maxIdUntil;
+  setEsMapping = options.setEsMapping;
+  getIndex = options.getIndex;
+  getType = options.getType;
+  getId = options.getId;
+  baseUrl = es.baseUrl;
+  index = es.index;
+  type = es.type;
+  httpAuth = es.httpAuth;
 
   client = new elasticsearch.Client({
     hosts: baseUrl,
     requestTimeout: 1000 * 60 * 5,
     httpAuth: httpAuth,
-  })
-  delay = 0
+  });
+  delay = 0;
   return fs
     .readFileAsync(maxIdPath, {
-      encoding: 'utf-8',
+      encoding: "utf-8",
     })
-    .then(function(result) {
+    .then(function (result) {
       return (maxId =
-        typeof result !== 'undefined' && result !== null
+        typeof result !== "undefined" && result !== null
           ? result.trim()
-          : void 0)
+          : void 0);
     })
-    ['catch'](function() {
-      return (maxId = maxIdSince || initMaxId || 0)
+    ["catch"](function () {
+      return (maxId = maxIdSince || initMaxId || 0);
     })
-    .then(function() {
+    .then(function () {
       if (setEsMapping) {
         return client.indices.putMapping({
           index: index,
@@ -77,37 +77,37 @@ exports = module.exports = function(options) {
           body: {
             properties: setEsMapping,
           },
-        })
+        });
       }
     })
     .then(
-      (interval = function() {
+      (interval = function () {
         Promise.resolve()
-          .then(function() {
+          .then(function () {
             if (maxIdUntil && maxId >= maxIdUntil) {
-              throw 'Maximum max id reached'
+              throw "Maximum max id reached";
             }
-            var fetchStartAt = moment()
-            return getDataAsync(maxId).then(function(results) {
+            var fetchStartAt = moment();
+            return getDataAsync(maxId).then(function (results) {
               if (!results.length) {
-                throw 'No data'
+                throw "No data";
               }
-              var fetchUsed = moment().diff(fetchStartAt, 'seconds', true)
+              var fetchUsed = moment().diff(fetchStartAt, "seconds", true);
               log(
-                'From ' +
+                "From " +
                   maxId +
-                  ', got ' +
+                  ", got " +
                   results.length +
-                  ' data, used ' +
+                  " data, used " +
                   fetchUsed +
-                  ' seconds'
-              )
-              var indexStartAt = moment()
+                  " seconds"
+              );
+              var indexStartAt = moment();
               return client
                 .bulk({
-                  body: (function() {
+                  body: (function () {
                     return _.chain(results)
-                      .map(function(result) {
+                      .map(function (result) {
                         return [
                           {
                             update: {
@@ -117,42 +117,46 @@ exports = module.exports = function(options) {
                             },
                           },
                           {
-                            doc: result,
-                            doc_as_upsert: true,
+                            doc: _.extend({}, result, {
+                              updatedAt: new Date(),
+                            }),
+                            upsert: _.extend({}, result, {
+                              createdAt: new Date(),
+                            }),
                           },
-                        ]
+                        ];
                       })
                       .flatten()
-                      .value()
+                      .value();
                   })(),
                 })
-                .then(function() {
-                  return (maxId = getMaxId(results))
+                .then(function () {
+                  return (maxId = getMaxId(results));
                 })
-                .then(function() {
-                  return fs.writeFileAsync(maxIdPath, maxId)
+                .then(function () {
+                  return fs.writeFileAsync(maxIdPath, maxId);
                 })
-                .then(function() {
-                  delay = 0
-                  var indexUsed = moment().diff(indexStartAt, 'seconds', true)
-                  return log('Indexed success, used ' + indexUsed + ' seconds')
-                })
-            })
+                .then(function () {
+                  delay = 0;
+                  var indexUsed = moment().diff(indexStartAt, "seconds", true);
+                  return log("Indexed success, used " + indexUsed + " seconds");
+                });
+            });
           })
-          ['catch'](function(err) {
-            delay = 30
-            return log(err)
+          ["catch"](function (err) {
+            delay = 30;
+            return log(err);
           })
           .delay(1000 * delay)
-          .then(interval)
+          .then(interval);
       })
-    )
-}
+    );
+};
 
-exports.getMaxId = function() {
-  return maxId
-}
+exports.getMaxId = function () {
+  return maxId;
+};
 
-exports.setMaxId = function(data) {
-  return (maxId = data)
-}
+exports.setMaxId = function (data) {
+  return (maxId = data);
+};
