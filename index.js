@@ -2,7 +2,7 @@ var Promise, _, elasticsearch, exports, fs, log, maxId, moment;
 
 fs = require("fs");
 
-_ = require("underscore");
+_ = require("lodash");
 
 Promise = require("bluebird");
 
@@ -24,6 +24,7 @@ exports = module.exports = function (options) {
     delay,
     es,
     getDataAsync,
+    rejectData,
     getMaxId,
     index,
     initMaxId,
@@ -31,17 +32,16 @@ exports = module.exports = function (options) {
     maxIdPath,
     type,
     maxIdSince,
-    maxIdUntil,
-    setEsMapping;
+    maxIdUntil;
 
   es = options.es;
   maxIdPath = options.maxIdPath;
   initMaxId = options.initMaxId;
   getMaxId = options.getMaxId;
   getDataAsync = options.getDataAsync;
+  rejectData = options.rejectData;
   maxIdSince = options.maxIdSince;
   maxIdUntil = options.maxIdUntil;
-  setEsMapping = options.setEsMapping;
   getIndex = options.getIndex;
   getType = options.getType;
   getId = options.getId;
@@ -69,17 +69,6 @@ exports = module.exports = function (options) {
     ["catch"](function () {
       return (maxId = maxIdSince || initMaxId || 0);
     })
-    .then(function () {
-      if (setEsMapping) {
-        return client.indices.putMapping({
-          index: index,
-          type: type,
-          body: {
-            properties: setEsMapping,
-          },
-        });
-      }
-    })
     .then(
       (interval = function () {
         Promise.resolve()
@@ -105,30 +94,29 @@ exports = module.exports = function (options) {
               var indexStartAt = moment();
               return client
                 .bulk({
-                  body: (function () {
-                    return _.chain(results)
-                      .map(function (result) {
-                        return [
-                          {
-                            update: {
-                              _index: (getIndex && getIndex(result)) || index,
-                              _type: (getType && getType(result)) || type,
-                              _id: (getId && getId(result)) || result.id,
-                            },
-                          },
-                          {
-                            doc: _.extend({}, result, {
-                              updatedAt: new Date(),
-                            }),
-                            upsert: _.extend({}, result, {
-                              createdAt: new Date(),
-                            }),
-                          },
-                        ];
-                      })
-                      .flatten()
-                      .value();
-                  })(),
+                  body: _.flatMap(results, function (result) {
+                    if (rejectData && rejectData(result)) {
+                      return [];
+                    }
+                    return [
+                      {
+                        update: {
+                          _index: (getIndex && getIndex(result)) || index,
+                          _type: (getType && getType(result)) || type,
+                          _id: (getId && getId(result)) || result.id,
+                        },
+                      },
+                      {
+                        doc: _.extend({}, result, {
+                          updatedAt: new Date(),
+                        }),
+                        upsert: _.extend({}, result, {
+                          createdAt: new Date(),
+                          updatedAt: new Date(),
+                        }),
+                      },
+                    ];
+                  }),
                 })
                 .then(function () {
                   return (maxId = getMaxId(results));
@@ -147,7 +135,9 @@ exports = module.exports = function (options) {
             delay = 30;
             return log(err);
           })
-          .delay(1000 * delay)
+          .then(function () {
+            return Promise.delay(1000 * delay);
+          })
           .then(interval);
       })
     );
