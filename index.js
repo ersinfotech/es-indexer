@@ -66,9 +66,9 @@ exports = module.exports = function (options) {
           ? result.trim()
           : void 0);
     })
-    ["catch"](function () {
-      return (maxId = maxIdSince || initMaxId || 0);
-    })
+  ["catch"](function () {
+    return (maxId = maxIdSince || initMaxId || 0);
+  })
     .then(
       (interval = function () {
         Promise.resolve()
@@ -84,12 +84,12 @@ exports = module.exports = function (options) {
               var fetchUsed = moment().diff(fetchStartAt, "seconds", true);
               log(
                 "From " +
-                  maxId +
-                  ", got " +
-                  results.length +
-                  " data, used " +
-                  fetchUsed +
-                  " seconds"
+                maxId +
+                ", got " +
+                results.length +
+                " data, used " +
+                fetchUsed +
+                " seconds"
               );
               var indexStartAt = moment();
               return client
@@ -102,7 +102,7 @@ exports = module.exports = function (options) {
                       {
                         update: {
                           _index: (getIndex && getIndex(result)) || index,
-                          _type: (getType && getType(result)) || type,
+                          // _type: (getType && getType(result)) || type,
                           _id: (getId && getId(result)) || result.id,
                         },
                       },
@@ -131,10 +131,10 @@ exports = module.exports = function (options) {
                 });
             });
           })
-          ["catch"](function (err) {
-            delay = 30;
-            return log(err);
-          })
+        ["catch"](function (err) {
+          delay = 30;
+          return log(err);
+        })
           .then(function () {
             return Promise.delay(1000 * delay);
           })
